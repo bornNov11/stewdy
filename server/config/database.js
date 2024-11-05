@@ -1,13 +1,14 @@
 // server/config/database.js
 const mongoose = require('mongoose');
+require('dotenv').config();
 
 const connectDB = async () => {
     try {
-        await mongoose.connect('mongodb://localhost:27017/study-platform', {
+        await mongoose.connect(process.env.MONGODB_URI, {
             useNewUrlParser: true,
             useUnifiedTopology: true
         });
-        console.log('MongoDB Connected Successfully!');
+        console.log('MongoDB Atlas Connected Successfully!');
         
         // 연결 확인을 위한 이벤트 리스너
         mongoose.connection.on('connected', () => {
