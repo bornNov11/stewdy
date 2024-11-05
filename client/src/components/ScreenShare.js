@@ -1,153 +1,75 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import io from 'socket.io-client';
-import API_URL from '../config';
+import React, { useState } from 'react';
 
 function ScreenShare() {
-  const { serverId } = useParams();
   const [isSharing, setIsSharing] = useState(false);
-  const [viewers, setViewers] = useState([]);
-  const localVideoRef = useRef(null);
-  const socketRef = useRef(null);
-  const peerConnectionsRef = useRef({});
-
-  useEffect(() => {
-    socketRef.current = io(API_URL, {
-      withCredentials: true
-    });
-
-    // 시그널링 처리
-    socketRef.current.on('userJoinedScreenShare', async (userId) => {
-      const peerConnection = createPeerConnection(userId);
-      peerConnectionsRef.current[userId] = peerConnection;
-
-      if (isSharing) {
-        const stream = localVideoRef.current.srcObject;
-        stream.getTracks().forEach(track => {
-          peerConnection.addTrack(track, stream);
-        });
-      }
-    });
-
-    socketRef.current.on('ice-candidate', ({ userId, candidate }) => {
-      const peerConnection = peerConnectionsRef.current[userId];
-      if (peerConnection) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    });
-
-    socketRef.current.on('offer', async ({ userId, description }) => {
-      const peerConnection = peerConnectionsRef.current[userId];
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(description));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      socketRef.current.emit('answer', { userId, description: answer });
-    });
-
-    socketRef.current.on('answer', ({ userId, description }) => {
-      const peerConnection = peerConnectionsRef.current[userId];
-      if (peerConnection) {
-        peerConnection.setRemoteDescription(new RTCSessionDescription(description));
-      }
-    });
-
-    return () => {
-      stopSharing();
-      socketRef.current.disconnect();
-      Object.values(peerConnectionsRef.current).forEach(pc => pc.close());
-    };
-  }, [serverId]);
-
-  const createPeerConnection = (userId) => {
-    const peerConnection = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
-    });
-
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        socketRef.current.emit('ice-candidate', {
-          userId,
-          candidate: event.candidate
-        });
-      }
-    };
-
-    peerConnection.ontrack = (event) => {
-      const [stream] = event.streams;
-      setViewers(prev => [...prev, { userId, stream }]);
-    };
-
-    return peerConnection;
-  };
+  const [showModal, setShowModal] = useState(false);
+  const [stream, setStream] = useState(null);
 
   const startSharing = async () => {
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+      const mediaStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
         audio: true
       });
-
-      localVideoRef.current.srcObject = stream;
+      setStream(mediaStream);
       setIsSharing(true);
-      socketRef.current.emit('startScreenShare', { roomId: serverId });
-
-      // 스트림 종료 처리
-      stream.getVideoTracks()[0].onended = () => {
-        stopSharing();
-      };
+      setShowModal(true);
     } catch (error) {
-      console.error('Error starting screen share:', error);
+      console.error('Error sharing screen:', error);
     }
   };
 
   const stopSharing = () => {
-    if (localVideoRef.current?.srcObject) {
-      localVideoRef.current.srcObject.getTracks().forEach(track => track.stop());
-      localVideoRef.current.srcObject = null;
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
     }
     setIsSharing(false);
-    socketRef.current.emit('stopScreenShare', { roomId: serverId });
+    setShowModal(false);
   };
 
-  return (
-    <div className="screen-share-container">
-      <div className="controls mb-4">
-        <button
-          onClick={isSharing ? stopSharing : startSharing}
-          className={`px-4 py-2 rounded ${
-            isSharing 
-              ? 'bg-red-500 hover:bg-red-600' 
-              : 'bg-discord-primary hover:bg-opacity-90'
-          } text-white transition-colors`}
-        >
-          {isSharing ? '화면 공유 중지' : '화면 공유 시작'}
-        </button>
-      </div>
-
-      <div className="video-container">
-        <video
-          ref={localVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className={`local-video ${isSharing ? 'block' : 'hidden'} w-full rounded-lg shadow-lg`}
-        />
-        
-        {viewers.map(({ userId, stream }) => (
+  const ShareModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-discord-secondary p-6 rounded-lg w-[80vw] max-w-4xl">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl text-white font-bold">화면 공유</h3>
+          <button
+            onClick={stopSharing}
+            className="text-discord-text hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="relative" style={{ paddingBottom: '56.25%' }}>
           <video
-            key={userId}
-            autoPlay
-            playsInline
-            className="remote-video w-full rounded-lg shadow-lg mt-4"
-            ref={element => {
-              if (element) element.srcObject = stream;
+            className="absolute inset-0 w-full h-full rounded-lg"
+            ref={video => {
+              if (video && stream) {
+                video.srcObject = stream;
+                video.play();
+              }
             }}
+            autoPlay
+            muted
           />
-        ))}
+        </div>
       </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <button
+        onClick={isSharing ? stopSharing : startSharing}
+        className={`px-4 py-2 rounded ${
+          isSharing 
+            ? 'bg-red-500 hover:bg-red-600' 
+            : 'bg-discord-primary hover:bg-discord-primary/90'
+        } text-white transition-colors`}
+      >
+        {isSharing ? '화면 공유 중지' : '화면 공유 시작'}
+      </button>
+      {showModal && <ShareModal />}
     </div>
   );
 }
