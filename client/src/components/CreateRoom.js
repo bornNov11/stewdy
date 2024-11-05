@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import API_URL from '../config';
 
 function CreateRoom({ isOpen, onClose }) {
   const [formData, setFormData] = useState({
@@ -16,21 +17,19 @@ function CreateRoom({ isOpen, onClose }) {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post(
-        'http://stewdy.onrender.com/api/rooms',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      const response = await axios.post(`${API_URL}/api/rooms`, formData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        withCredentials: true
+      });
 
       console.log('Room created:', response.data);
       onClose();
       navigate(`/channels/${response.data.data._id}`);
     } catch (error) {
+      console.error('Error creating room:', error.response || error);
       setError(error.response?.data?.error || '스터디룸 생성 중 오류가 발생했습니다.');
     }
   };
@@ -52,6 +51,7 @@ function CreateRoom({ isOpen, onClose }) {
           <div>
             <label className="block text-discord-text text-sm font-medium mb-2">
               스터디룸 이름
+              <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -65,6 +65,7 @@ function CreateRoom({ isOpen, onClose }) {
           <div>
             <label className="block text-discord-text text-sm font-medium mb-2">
               설명
+              <span className="text-red-500">*</span>
             </label>
             <textarea
               className="w-full p-2 bg-discord-tertiary text-white rounded focus:outline-none focus:ring-2 focus:ring-discord-primary h-24"

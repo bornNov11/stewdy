@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import io from 'socket.io-client';
 import axios from 'axios';
 import API_URL from '../config';
+import ScreenShare from './ScreenShare';
 
 function Chat() {
   const { serverId } = useParams();
@@ -11,7 +12,7 @@ function Chat() {
   const [room, setRoom] = useState(null);
   const [user, setUser] = useState(null);
   const messageListRef = useRef(null);
-  const socketRef = useRef();
+  const socketRef = useRef(null);
 
   const scrollToBottom = () => {
     if (messageListRef.current) {
@@ -37,7 +38,10 @@ function Chat() {
 
     const fetchRoom = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/rooms/${serverId}`);
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/api/rooms/${serverId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setRoom(response.data.data);
       } catch (error) {
         console.error('Error fetching room:', error);
@@ -47,24 +51,29 @@ function Chat() {
     fetchUser();
     fetchRoom();
 
+    // Socket.IO 연결
     socketRef.current = io(API_URL, {
       withCredentials: true,
-      transports: ['websocket']
+      query: { roomId: serverId }
     });
+    
     socketRef.current.emit('joinRoom', serverId);
 
+    // 이전 메시지 수신
     socketRef.current.on('previousMessages', (previousMessages) => {
       console.log('Received previous messages:', previousMessages);
       setMessages(previousMessages);
       setTimeout(scrollToBottom, 100);
     });
 
+    // 새 메시지 수신
     socketRef.current.on('message', (message) => {
       console.log('Received new message:', message);
       setMessages((prevMessages) => [...prevMessages, message]);
       setTimeout(scrollToBottom, 100);
     });
 
+    // 사용자 활동 메시지 수신
     socketRef.current.on('userActivity', (activity) => {
       console.log('User activity:', activity);
       setMessages((prevMessages) => [
@@ -109,12 +118,17 @@ function Chat() {
         <h2 className="text-white font-bold">{room?.name || 'Loading...'}</h2>
       </div>
 
+      {/* 화면 공유 섹션 */}
+      <div className="screen-share-section p-4 border-b border-gray-800">
+        <ScreenShare />
+      </div>
+
       {/* 메시지 목록 - 스크롤 영역 */}
       <div 
         ref={messageListRef}
         className="flex-1 overflow-y-auto px-4 py-2"
         style={{ 
-          height: 'calc(100vh - 120px)',
+          height: 'calc(100vh - 280px)', // 헤더, 화면 공유, 입력창 높이를 고려
           overflowY: 'auto',
           scrollBehavior: 'smooth'
         }}
