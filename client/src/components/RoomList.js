@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import API_URL from '../config';
 
 function RoomList() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [selectedRoom, setSelectedRoom] = useState(null);
-  const [password, setPassword] = useState('');
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,94 +30,73 @@ function RoomList() {
     fetchRooms();
   }, []);
 
-  const handleJoinRoom = async (room) => {
-    setSelectedRoom(room);
-    setShowPasswordModal(true);
-  };
-
-  const handlePasswordSubmit = async (e) => {
-    e.preventDefault();
+  const handleJoinRoom = async (roomId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_URL}/api/rooms/${selectedRoom._id}/join`,
-        { password },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+      await axios.post(`${API_URL}/api/rooms/${roomId}/join`, {}, {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      );
-      setShowPasswordModal(false);
-      setPassword('');
-      navigate(`/channels/${selectedRoom._id}`);
+      });
+      navigate(`/channels/${roomId}`);
     } catch (error) {
-      setError(error.response?.data?.error || '스터디룸 참가에 실패했습니다.');
+      console.error('Error joining room:', error);
+      setError('스터디룸 참가에 실패했습니다.');
     }
   };
 
-  const PasswordModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-discord-secondary p-6 rounded-lg w-96">
-        <h3 className="text-xl text-white font-bold mb-4">비밀번호 입력</h3>
-        <form onSubmit={handlePasswordSubmit}>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 mb-4 bg-discord-tertiary text-white rounded focus:outline-none"
-            placeholder="비밀번호를 입력하세요"
-            required
-          />
-          <div className="flex justify-end space-x-2">
-            <button
-              type="button"
-              onClick={() => {
-                setShowPasswordModal(false);
-                setPassword('');
-              }}
-              className="px-4 py-2 bg-discord-secondary text-white rounded hover:bg-opacity-80"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-discord-primary text-white rounded hover:bg-opacity-80"
-            >
-              참가
-            </button>
-          </div>
-        </form>
+  if (loading) {
+    return (
+      <div className="flex-1 bg-discord-bg p-4">
+        <div className="text-white">로딩 중...</div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  if (loading) return <div className="text-white p-4">로딩 중...</div>;
-  if (error) return <div className="text-red-500 p-4">{error}</div>;
+  if (error) {
+    return (
+      <div className="flex-1 bg-discord-bg p-4">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4">
-      {showPasswordModal && <PasswordModal />}
-      <div className="grid gap-4">
-        {rooms.map((room) => (
-          <div
-            key={room._id}
-            className="bg-discord-secondary p-4 rounded-lg hover:bg-discord-secondary/90 transition-all cursor-pointer"
-            onClick={() => handleJoinRoom(room)}
-          >
-            <h3 className="text-xl font-semibold text-white mb-2">{room.name}</h3>
-            <p className="text-discord-text mb-2">{room.description}</p>
-            <div className="flex justify-between text-discord-text text-sm">
-              <span>참가자: {room.participants?.length || 0}/{room.maxParticipants}</span>
-              <span>호스트: {room.host?.username || 'Unknown'}</span>
+    <div className="flex-1 bg-discord-bg p-6 overflow-y-auto">
+      <div className="max-w-4xl mx-auto">
+        <h2 className="text-2xl font-bold text-white mb-6">스터디룸 목록</h2>
+        <div className="grid gap-4">
+          {rooms.map((room) => (
+            <div
+              key={room._id}
+              className="bg-discord-secondary p-4 rounded-lg hover:bg-discord-secondary/90 transition-colors cursor-pointer"
+              onClick={() => handleJoinRoom(room._id)}
+            >
+              <div className="flex justify-between items-start">
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  {room.name}
+                </h3>
+                <span className="text-discord-text text-sm">
+                  {room.category}
+                </span>
+              </div>
+              <p className="text-discord-text mb-3">{room.description}</p>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-discord-text">
+                  참가자: {room.participants?.length || 0}/{room.maxParticipants}
+                </span>
+                <span className="text-discord-text">
+                  호스트: {room.host?.username || 'Unknown'}
+                </span>
+              </div>
             </div>
-            {room.category && (
-              <span className="inline-block mt-2 px-2 py-1 bg-discord-primary/20 text-discord-text rounded text-sm">
-                {room.category}
-              </span>
-            )}
-          </div>
-        ))}
+          ))}
+          {rooms.length === 0 && (
+            <div className="text-center text-discord-text py-8">
+              생성된 스터디룸이 없습니다.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import ServerList from './components/ServerList';
 import ChannelList from './components/ChannelList';
+import RoomList from './components/RoomList';
 import Chat from './components/Chat';
 
 function App() {
@@ -33,13 +34,12 @@ function App() {
     <Router>
       <div className="flex h-screen overflow-hidden">
         <ServerList />
-        <div className="flex flex-1 min-w-0">
-          <ChannelList />
-          <Routes>
-            <Route path="/channels/:serverId" element={<Chat />} />
-            <Route path="*" element={<Navigate to="/channels/@me" replace />} />
-          </Routes>
-        </div>
+        <ChannelList />
+        <Routes>
+          <Route path="/channels/@me" element={<RoomList />} />
+          <Route path="/channels/:serverId" element={<Chat />} />
+          <Route path="*" element={<Navigate to="/channels/@me" replace />} />
+        </Routes>
       </div>
     </Router>
   );
