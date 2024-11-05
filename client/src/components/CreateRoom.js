@@ -8,7 +8,9 @@ function CreateRoom({ isOpen, onClose }) {
     name: '',
     description: '',
     category: 'javascript',
-    maxParticipants: 10
+    maxParticipants: 10,
+    password: '',
+    type: 'text'  // 'text' 또는 'voice'
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -73,6 +75,35 @@ function CreateRoom({ isOpen, onClose }) {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-discord-text text-sm font-medium mb-2">
+              비밀번호
+              <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              className="w-full p-2 bg-discord-tertiary text-white rounded focus:outline-none focus:ring-2 focus:ring-discord-primary"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              required
+              minLength={4}
+            />
+          </div>
+
+          <div>
+            <label className="block text-discord-text text-sm font-medium mb-2">
+              채널 타입
+            </label>
+            <select
+              className="w-full p-2 bg-discord-tertiary text-white rounded focus:outline-none focus:ring-2 focus:ring-discord-primary"
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+            >
+              <option value="text">텍스트 채널</option>
+              <option value="voice">음성 채널</option>
+            </select>
           </div>
 
           <div>
