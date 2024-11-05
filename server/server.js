@@ -102,26 +102,57 @@ io.on('connection', (socket) => {
     
     socket.on('joinRoom', async (roomId) => {
         try {
-            const messages = await Message.find({ room: roomId })
-                .sort({ createdAt: -1 })
-                .limit(50)
-                .populate('user', 'username');
-            
-            socket.join(roomId);
-            socket.emit('previousMessages', messages.reverse());
-            io.to(roomId).emit('userActivity', {
-                type: 'join',
-                message: '새로운 사용자가 입장했습니다.',
-                timestamp: new Date()
-            });
+            // '@me' 채널 처리
+            if (roomId === '@me') {
+                socket.join(roomId);
+                socket.emit('previousMessages', []);
+                socket.emit('userActivity', {
+                    type: 'join',
+                    message: 'Welcome to your personal channel!',
+                    timestamp: new Date()
+                });
+                return;
+            }
+
+            // 일반 채널 처리
+            try {
+                const messages = await Message.find({ room: roomId })
+                    .sort({ createdAt: -1 })
+                    .limit(50)
+                    .populate('user', 'username');
+                
+                socket.join(roomId);
+                socket.emit('previousMessages', messages.reverse());
+                io.to(roomId).emit('userActivity', {
+                    type: 'join',
+                    message: '새로운 사용자가 입장했습니다.',
+                    timestamp: new Date()
+                });
+            } catch (error) {
+                console.error('Error fetching messages:', error);
+                socket.emit('previousMessages', []);
+            }
         } catch (error) {
             console.error('Error in joinRoom:', error);
+            socket.emit('error', { message: 'Failed to join room' });
         }
     });
 
     socket.on('chatMessage', async (data) => {
+        const { roomId, message, username } = data;
+
+        // '@me' 채널은 메시지를 저장하지 않음
+        if (roomId === '@me') {
+            io.to(roomId).emit('message', {
+                id: Date.now().toString(),
+                username,
+                message,
+                timestamp: new Date()
+            });
+            return;
+        }
+
         try {
-            const { roomId, message, username } = data;
             const newMessage = new Message({
                 room: roomId,
                 content: message,
@@ -138,6 +169,7 @@ io.on('connection', (socket) => {
             });
         } catch (error) {
             console.error('Error in chatMessage:', error);
+            socket.emit('error', { message: 'Failed to send message' });
         }
     });
 
@@ -153,12 +185,18 @@ io.on('connection', (socket) => {
     // 음성 채팅 이벤트
     socket.on('joinVoice', (roomId) => {
         socket.join(`voice-${roomId}`);
-        io.to(`voice-${roomId}`).emit('voiceUserJoined', socket.id);
+        io.to(`voice-${roomId}`).emit('voiceUserJoined', {
+            userId: socket.id,
+            timestamp: new Date()
+        });
     });
 
     socket.on('leaveVoice', (roomId) => {
         socket.leave(`voice-${roomId}`);
-        io.to(`voice-${roomId}`).emit('voiceUserLeft', socket.id);
+        io.to(`voice-${roomId}`).emit('voiceUserLeft', {
+            userId: socket.id,
+            timestamp: new Date()
+        });
     });
 
     socket.on('disconnect', () => {
