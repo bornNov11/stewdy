@@ -37,7 +37,7 @@ app.use(express.json());
 
 // MongoDB 연결
 console.log('Attempting to connect to MongoDB...');
-mongoose.connect(mongoURI, {
+mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
