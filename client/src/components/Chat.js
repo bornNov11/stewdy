@@ -16,6 +16,15 @@ function Chat() {
   const messageListRef = useRef(null);
   const socketRef = useRef(null);
 
+  const scrollToBottom = () => {
+    if (messageListRef.current) {
+      const scrollHeight = messageListRef.current.scrollHeight;
+      const height = messageListRef.current.clientHeight;
+      const maxScrollTop = scrollHeight - height;
+      messageListRef.current.scrollTop = maxScrollTop > 0 ? maxScrollTop : 0;
+    }
+  };
+
   useEffect(() => {
     // 현재 채널이 보이스 채널인지 확인
     const checkChannelType = async () => {
@@ -30,9 +39,88 @@ function Chat() {
       }
     };
     checkChannelType();
+
+    const fetchUser = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUser(response.data.user);
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      }
+    };
+
+    const fetchRoom = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/api/rooms/${serverId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setRoom(response.data.data);
+      } catch (error) {
+        console.error('Error fetching room:', error);
+      }
+    };
+
+    fetchUser();
+    fetchRoom();
+
+    socketRef.current = io(API_URL, {
+      withCredentials: true,
+      query: { roomId: serverId }
+    });
+    
+    socketRef.current.emit('joinRoom', serverId);
+
+    socketRef.current.on('previousMessages', (previousMessages) => {
+      console.log('Received previous messages:', previousMessages);
+      setMessages(previousMessages);
+      setTimeout(scrollToBottom, 100);
+    });
+
+    socketRef.current.on('message', (message) => {
+      console.log('Received new message:', message);
+      setMessages((prevMessages) => [...prevMessages, message]);
+      setTimeout(scrollToBottom, 100);
+    });
+
+    socketRef.current.on('userActivity', (activity) => {
+      console.log('User activity:', activity);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          id: Date.now(),
+          type: 'activity',
+          message: activity.message,
+          timestamp: new Date()
+        }
+      ]);
+      setTimeout(scrollToBottom, 100);
+    });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.emit('leaveRoom', serverId);
+        socketRef.current.disconnect();
+      }
+    };
   }, [serverId]);
 
-  // ... 기존의 다른 useEffect와 함수들 ...
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (newMessage.trim() && user) {
+      const messageData = {
+        roomId: serverId,
+        message: newMessage,
+        username: user.username
+      };
+      console.log('Sending message:', messageData);
+      socketRef.current.emit('chatMessage', messageData);
+      setNewMessage('');
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen bg-discord-bg">
