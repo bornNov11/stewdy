@@ -17,7 +17,7 @@ function CreateRoom({ isOpen, onClose }) {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        'http://localhost:5000/api/rooms',
+        'http://stewdy.onrender.com/api/rooms',
         formData,
         {
           headers: {

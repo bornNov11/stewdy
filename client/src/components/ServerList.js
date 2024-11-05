@@ -11,7 +11,7 @@ function ServerList({ onLogout }) {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/rooms');
+        const response = await axios.get('http://stewdy.onrender.com/api/rooms');
         setRooms(response.data.data);
       } catch (error) {
         console.error('Error fetching rooms:', error);

@@ -23,7 +23,7 @@ function App() {
 
       try {
         // 토큰 유효성 검증
-        const response = await axios.get('http://localhost:5000/api/auth/me', {
+        const response = await axios.get('http://stewdy.onrender.com/api/auth/me', {
           headers: {
             Authorization: `Bearer ${token}`
           }
