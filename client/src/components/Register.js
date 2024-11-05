@@ -27,11 +27,18 @@ function Register({ setIsAuthenticated }) {
         email: formData.email,
         password: formData.password,
         role: formData.role
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        withCredentials: true
       });
 
-      localStorage.setItem('token', response.data.token);
-      setIsAuthenticated(true);
-      navigate('/channels/@me');
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        setIsAuthenticated(true);
+        navigate('/channels/@me');
+      }
     } catch (error) {
       setError(error.response?.data?.error || '회원가입 중 오류가 발생했습니다.');
     }

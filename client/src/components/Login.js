@@ -14,10 +14,18 @@ function Login({ setIsAuthenticated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(`${API_URL}/api/auth/login`, formData);
-      localStorage.setItem('token', response.data.token);
-      setIsAuthenticated(true);
-      navigate('/channels/@me');
+      const response = await axios.post(`${API_URL}/api/auth/login`, formData, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        withCredentials: true
+      });
+
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        setIsAuthenticated(true);
+        navigate('/channels/@me');
+      }
     } catch (error) {
       setError(error.response?.data?.error || '로그인 중 오류가 발생했습니다.');
     }

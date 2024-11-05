@@ -47,7 +47,10 @@ function Chat() {
     fetchUser();
     fetchRoom();
 
-    socketRef.current = io(API_URL);
+    socketRef.current = io(API_URL, {
+      withCredentials: true,
+      transports: ['websocket']
+    });
     socketRef.current.emit('joinRoom', serverId);
 
     socketRef.current.on('previousMessages', (previousMessages) => {
