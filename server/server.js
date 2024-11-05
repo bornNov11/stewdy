@@ -14,9 +14,17 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+
+// CORS 허용 도메인 설정
+const allowedOrigins = [
+    'http://localhost:3000',
+    'https://stewdy.onrender.com'
+];
+
+// Socket.IO 설정
 const io = socketIO(server, {
     cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:3000",
+        origin: allowedOrigins,
         methods: ["GET", "POST", "PUT", "DELETE"],
         credentials: true
     }
@@ -25,11 +33,19 @@ const io = socketIO(server, {
 // mongoose 경고 해결
 mongoose.set('strictQuery', false);
 
-// 미들웨어 설정
+// CORS 미들웨어 설정
 app.use(cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    credentials: true
+    origin: function(origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
+
 app.use(express.json());
 
 // MongoDB 연결
@@ -55,7 +71,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 
-// API 문서화 라우트
+// API 문서화
 app.get('/api-docs', (req, res) => {
     res.json({
         endpoints: {
