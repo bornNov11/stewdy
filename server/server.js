@@ -3,16 +3,20 @@ const http = require('http');
 const socketIO = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const dotenv = require('dotenv');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const Message = require('./models/Message');
 
+// 환경변수 설정
+dotenv.config();
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
     cors: {
-        origin: "http://localhost:3000",
+        origin: process.env.CLIENT_URL || "http://localhost:3000",
         methods: ["GET", "POST"]
     }
 });
@@ -21,11 +25,14 @@ const io = socketIO(server, {
 mongoose.set('strictQuery', false);
 
 // 미들웨어 설정
-app.use(cors());
+app.use(cors({
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    credentials: true
+}));
 app.use(express.json());
 
 // MongoDB 연결
-mongoose.connect('mongodb://localhost:27017/study-platform', {
+mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
@@ -35,17 +42,21 @@ mongoose.connect('mongodb://localhost:27017/study-platform', {
     process.exit(1);
 });
 
-// 기본 라우트 및 API 라우트 설정
+// 프로덕션 환경에서 정적 파일 제공
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, '../client/build')));
+}
+
+// 라우트 설정
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 
-// 소켓 이벤트 처리
+// Socket.io 이벤트 처리
 io.on('connection', (socket) => {
     console.log('New client connected:', socket.id);
     
     socket.on('joinRoom', async (roomId) => {
         try {
-            // 이전 메시지 불러오기
             const messages = await Message.find({ room: roomId })
                 .sort({ timestamp: -1 })
                 .limit(50);
@@ -53,7 +64,6 @@ io.on('connection', (socket) => {
             socket.emit('previousMessages', messages.reverse());
             socket.join(roomId);
             
-            // 입장 메시지 전송
             io.to(roomId).emit('userActivity', {
                 type: 'join',
                 message: '새로운 사용자가 입장했습니다.',
@@ -65,11 +75,8 @@ io.on('connection', (socket) => {
     });
     
     socket.on('chatMessage', async (data) => {
-        console.log('Received message:', data); // 디버깅용 로그
         const { roomId, message, username } = data;
-        
         try {
-            // 메시지 생성 및 저장
             const newMessage = new Message({
                 room: roomId,
                 content: message,
@@ -78,9 +85,7 @@ io.on('connection', (socket) => {
             });
 
             await newMessage.save();
-            console.log('Message saved:', newMessage); // 디버깅용 로그
 
-            // 저장된 메시지 전송
             io.to(roomId).emit('message', {
                 id: newMessage._id,
                 room: roomId,
@@ -107,21 +112,12 @@ io.on('connection', (socket) => {
     });
 });
 
-// 404 및 에러 처리
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        error: 'Route not found'
+// React app의 모든 요청 처리 (프로덕션 환경)
+if (process.env.NODE_ENV === 'production') {
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
     });
-});
-
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        success: false,
-        error: err.message
-    });
-});
+}
 
 const PORT = process.env.PORT || 5000;
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import API_URL from '../config';
 
 function Login({ setIsAuthenticated }) {
   const [formData, setFormData] = useState({
@@ -12,10 +13,8 @@ function Login({ setIsAuthenticated }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', formData);
+      const response = await axios.post(`${API_URL}/api/auth/login`, formData);
       localStorage.setItem('token', response.data.token);
       setIsAuthenticated(true);
       navigate('/channels/@me');
@@ -25,7 +24,7 @@ function Login({ setIsAuthenticated }) {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-discord-bg p-4">
+    <div className="flex items-center justify-center min-h-screen bg-discord-bg">
       <div className="bg-discord-secondary p-8 rounded-lg shadow-lg w-full max-w-md">
         <h2 className="text-3xl font-bold text-white text-center mb-8">돌아오신 것을 환영합니다!</h2>
         
@@ -35,8 +34,8 @@ function Login({ setIsAuthenticated }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
             <label className="block text-discord-text text-sm font-medium mb-2">
               이메일
               <span className="text-red-500">*</span>
@@ -50,7 +49,7 @@ function Login({ setIsAuthenticated }) {
             />
           </div>
 
-          <div>
+          <div className="mb-6">
             <label className="block text-discord-text text-sm font-medium mb-2">
               비밀번호
               <span className="text-red-500">*</span>

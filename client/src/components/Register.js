@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import API_URL from '../config';
 
 function Register({ setIsAuthenticated }) {
   const [formData, setFormData] = useState({
@@ -15,16 +16,13 @@ function Register({ setIsAuthenticated }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-
-    // 비밀번호 확인
     if (formData.password !== formData.confirmPassword) {
       setError('비밀번호가 일치하지 않습니다.');
       return;
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/register', {
+      const response = await axios.post(`${API_URL}/api/auth/register`, {
         username: formData.username,
         email: formData.email,
         password: formData.password,
@@ -40,7 +38,7 @@ function Register({ setIsAuthenticated }) {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-discord-bg p-4">
+    <div className="flex items-center justify-center min-h-screen bg-discord-bg">
       <div className="bg-discord-secondary p-8 rounded-lg shadow-lg w-full max-w-md">
         <h2 className="text-3xl font-bold text-white text-center mb-8">계정 만들기</h2>
         
@@ -50,8 +48,8 @@ function Register({ setIsAuthenticated }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
             <label className="block text-discord-text text-sm font-medium mb-2">
               사용자명
               <span className="text-red-500">*</span>
@@ -65,7 +63,7 @@ function Register({ setIsAuthenticated }) {
             />
           </div>
 
-          <div>
+          <div className="mb-4">
             <label className="block text-discord-text text-sm font-medium mb-2">
               이메일
               <span className="text-red-500">*</span>
@@ -79,7 +77,7 @@ function Register({ setIsAuthenticated }) {
             />
           </div>
 
-          <div>
+          <div className="mb-4">
             <label className="block text-discord-text text-sm font-medium mb-2">
               비밀번호
               <span className="text-red-500">*</span>
@@ -93,7 +91,7 @@ function Register({ setIsAuthenticated }) {
             />
           </div>
 
-          <div>
+          <div className="mb-4">
             <label className="block text-discord-text text-sm font-medium mb-2">
               비밀번호 확인
               <span className="text-red-500">*</span>
@@ -107,7 +105,7 @@ function Register({ setIsAuthenticated }) {
             />
           </div>
 
-          <div>
+          <div className="mb-6">
             <label className="block text-discord-text text-sm font-medium mb-2">
               역할
             </label>
