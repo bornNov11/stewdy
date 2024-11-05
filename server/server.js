@@ -8,50 +8,59 @@ const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const Message = require('./models/Message');
+const connectDB = require('./config/database');
 
 // 환경변수 설정
 dotenv.config();
 
-// MongoDB URI 확인
-const mongoURI = process.env.MONGODB_URI;
-if (!mongoURI) {
-    console.error('MONGODB_URI is not defined in environment variables');
-    process.exit(1);
-}
-
+// Express 앱 설정
 const app = express();
 const server = http.createServer(app);
+
+// CORS 설정 - render.com 배포 환경 고려
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['https://your-frontend-domain.com'] // 프론트엔드 도메인으로 변경
+        : '*',
+    methods: ['GET', 'POST'],
+    credentials: true
+};
+
+// Socket.IO 설정
 const io = socketIO(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+    cors: corsOptions
 });
 
-// mongoose 경고 해결
-mongoose.set('strictQuery', false);
-
 // 미들웨어 설정
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // MongoDB 연결
-console.log('Attempting to connect to MongoDB...');
-mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
-.then(() => {
-    console.log('MongoDB Connected successfully');
-})
-.catch(err => {
+connectDB();
+
+// 연결 상태 모니터링
+mongoose.connection.on('disconnected', () => {
+    console.log('MongoDB disconnected! Attempting to reconnect...');
+    connectDB();
+});
+
+mongoose.connection.on('error', (err) => {
     console.error('MongoDB connection error:', err);
-    process.exit(1);
 });
 
 // 라우트 설정
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
+
+// 상태 확인 엔드포인트
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        message: 'Server is running',
+        mongoConnection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    });
+});
 
 // 기본 라우트
 app.get('/', (req, res) => {
@@ -81,23 +90,42 @@ io.on('connection', (socket) => {
             });
         } catch (error) {
             console.error('Error loading messages:', error);
+            socket.emit('error', { message: 'Failed to load messages' });
         }
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
     });
     
     // ... 나머지 소켓 이벤트 핸들러는 그대로 유지
 });
 
+// 포트 설정
 const PORT = process.env.PORT || 10000;
 
+// 서버 시작
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
 });
 
-// 에러 핸들링
+// 전역 에러 핸들링
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    console.error('Error:', err);
     res.status(500).json({
         success: false,
-        error: 'Something went wrong!'
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error',
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
+});
+
+// 예기치 않은 에러 처리
+process.on('unhandledRejection', (err) => {
+    console.error('Unhandled Promise Rejection:', err);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+    process.exit(1);
 });
