@@ -9,8 +9,7 @@ function CreateRoom({ isOpen, onClose }) {
     description: '',
     category: 'javascript',
     maxParticipants: 10,
-    password: '',
-    type: 'text'  // 'text' 또는 'voice'
+    password: ''
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -23,15 +22,13 @@ function CreateRoom({ isOpen, onClose }) {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        },
-        withCredentials: true
+        }
       });
 
-      console.log('Room created:', response.data);
       onClose();
       navigate(`/channels/${response.data.data._id}`);
     } catch (error) {
-      console.error('Error creating room:', error.response || error);
+      console.error('Error creating room:', error);
       setError(error.response?.data?.error || '스터디룸 생성 중 오류가 발생했습니다.');
     }
   };
@@ -52,8 +49,7 @@ function CreateRoom({ isOpen, onClose }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-discord-text text-sm font-medium mb-2">
-              스터디룸 이름
-              <span className="text-red-500">*</span>
+              스터디룸 이름<span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -66,8 +62,7 @@ function CreateRoom({ isOpen, onClose }) {
 
           <div>
             <label className="block text-discord-text text-sm font-medium mb-2">
-              설명
-              <span className="text-red-500">*</span>
+              설명<span className="text-red-500">*</span>
             </label>
             <textarea
               className="w-full p-2 bg-discord-tertiary text-white rounded focus:outline-none focus:ring-2 focus:ring-discord-primary h-24"
@@ -79,8 +74,7 @@ function CreateRoom({ isOpen, onClose }) {
 
           <div>
             <label className="block text-discord-text text-sm font-medium mb-2">
-              비밀번호
-              <span className="text-red-500">*</span>
+              비밀번호<span className="text-red-500">*</span>
             </label>
             <input
               type="password"
@@ -90,20 +84,6 @@ function CreateRoom({ isOpen, onClose }) {
               required
               minLength={4}
             />
-          </div>
-
-          <div>
-            <label className="block text-discord-text text-sm font-medium mb-2">
-              채널 타입
-            </label>
-            <select
-              className="w-full p-2 bg-discord-tertiary text-white rounded focus:outline-none focus:ring-2 focus:ring-discord-primary"
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-            >
-              <option value="text">텍스트 채널</option>
-              <option value="voice">음성 채널</option>
-            </select>
           </div>
 
           <div>

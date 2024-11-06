@@ -33,7 +33,7 @@ function App() {
   return (
     <Router>
       <div className="flex h-screen overflow-hidden">
-        <ServerList />
+        <ServerList setIsAuthenticated={setIsAuthenticated} />
         <ChannelList />
         <Routes>
           <Route path="/channels/@me" element={<RoomList />} />

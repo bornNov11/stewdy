@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import CreateRoom from './CreateRoom';
 
-function ServerList() {
+function ServerList({ setIsAuthenticated }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsAuthenticated(false);
+    navigate('/login');
+  };
 
   return (
     <>
-      <div className="w-[72px] h-screen bg-discord-tertiary flex flex-col items-center pt-3 space-y-2">
+      <div className="w-[72px] h-screen bg-discord-tertiary flex flex-col items-center pt-3">
         {/* Home Button */}
         <Link
           to="/channels/@me"
@@ -21,7 +28,7 @@ function ServerList() {
           <span className="text-2xl">🏠</span>
         </Link>
 
-        <div className="w-8 h-[2px] bg-discord-secondary rounded-full" />
+        <div className="w-8 h-[2px] bg-discord-secondary rounded-full mb-2" />
 
         {/* Create Room Button */}
         <button
@@ -29,6 +36,17 @@ function ServerList() {
           onClick={() => setShowCreateModal(true)}
         >
           <span className="text-2xl">+</span>
+        </button>
+
+        {/* Spacer */}
+        <div className="flex-grow" />
+
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          className="w-12 h-12 mb-3 rounded-full bg-discord-secondary text-red-500 hover:bg-red-500 hover:text-white hover:rounded-2xl transition-all duration-200 flex items-center justify-center"
+        >
+          <span className="text-xl">⬅️</span>
         </button>
       </div>
 
