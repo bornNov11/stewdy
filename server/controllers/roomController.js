@@ -134,6 +134,32 @@ exports.joinRoom = async (req, res) => {
     }
 };
 
+// 참가 여부 확인
+exports.checkParticipation = async (req, res) => {
+    try {
+      const room = await Room.findById(req.params.id);
+      
+      if (!room) {
+        return res.status(404).json({
+          success: false,
+          error: '해당 스터디룸을 찾을 수 없습니다'
+        });
+      }
+  
+      const isParticipant = room.participants.includes(req.user._id);
+  
+      res.status(200).json({
+        success: true,
+        isParticipant
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error.message
+      });
+    }
+  };
+
 // 스터디룸 나가기
 exports.leaveRoom = async (req, res) => {
     try {

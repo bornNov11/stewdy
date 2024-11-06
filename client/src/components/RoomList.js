@@ -33,15 +33,25 @@ function RoomList() {
   const handleJoinRoom = async (roomId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/rooms/${roomId}/join`, {}, {
+      
+      // 먼저 참가 여부 확인
+      const checkResponse = await axios.get(`${API_URL}/api/rooms/${roomId}/check-participation`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
-      navigate(`/channels/${roomId}`);
+  
+      if (checkResponse.data.isParticipant) {
+        // 이미 참가 중이면 바로 입장
+        navigate(`/channels/${roomId}`);
+      } else {
+        // 참가 중이 아니면 비밀번호 모달 표시
+        setSelectedRoom({id: roomId});
+        setShowPasswordModal(true);
+      }
     } catch (error) {
-      console.error('Error joining room:', error);
-      setError('스터디룸 참가에 실패했습니다.');
+      console.error('Error checking room participation:', error);
+      setError('스터디룸 참가 확인에 실패했습니다.');
     }
   };
 

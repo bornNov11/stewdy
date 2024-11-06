@@ -21,6 +21,9 @@ router.route('/')
 // 현재 룸 조회
 router.get('/current', protect, getCurrentRoom);
 
+// 참가 여부 확인 라우트 추가
+router.get('/:id/check-participation', protect, roomController.checkParticipation);
+
 // 음성 채팅 관련 라우트
 router.route('/:id/voice')
     .get(getVoiceUsers)
