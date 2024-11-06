@@ -10,7 +10,9 @@ const {
     getCurrentRoom,
     joinVoiceRoom,
     leaveVoiceRoom,
-    getVoiceUsers
+    getVoiceUsers,
+    checkParticipation,
+    deleteRoom
 } = require('../controllers/roomController');
 
 // 기본 라우트
@@ -21,8 +23,8 @@ router.route('/')
 // 현재 룸 조회
 router.get('/current', protect, getCurrentRoom);
 
-// 참가 여부 확인 라우트 추가
-router.get('/:id/check-participation', protect, roomController.checkParticipation);
+// 참가 여부 확인
+router.get('/:id/check-participation', protect, checkParticipation);
 
 // 음성 채팅 관련 라우트
 router.route('/:id/voice')
@@ -34,6 +36,9 @@ router.route('/:id/voice')
 router.route('/:id')
     .get(getRoom)
     .post(protect, joinRoom)
-    .delete(protect, leaveRoom);
+    .delete(protect, deleteRoom);
+
+// 룸 나가기
+router.post('/:id/leave', protect, leaveRoom);
 
 module.exports = router;
