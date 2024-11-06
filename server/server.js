@@ -8,13 +8,9 @@ const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const Message = require('./models/Message');
-const voiceRoutes = require('./routes/voiceRoutes');
 
 // 환경변수 설정
 dotenv.config();
-
-const app = express();
-const server = http.createServer(app);
 
 // CORS 허용 도메인 설정
 const allowedOrigins = [
@@ -22,13 +18,18 @@ const allowedOrigins = [
     'https://stewdy.onrender.com'
 ];
 
+const app = express();
+const server = http.createServer(app);
+
 // Socket.IO 설정
 const io = socketIO(server, {
     cors: {
         origin: allowedOrigins,
         methods: ["GET", "POST", "PUT", "DELETE"],
-        credentials: true
-    }
+        credentials: true,
+        transports: ['websocket', 'polling']
+    },
+    allowEIO3: true
 });
 
 // mongoose 경고 해결
@@ -37,7 +38,7 @@ mongoose.set('strictQuery', false);
 // CORS 미들웨어 설정
 app.use(cors({
     origin: function(origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -71,107 +72,83 @@ app.get('/', (req, res) => {
 // API 라우트
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
-app.use('/api/voice', voiceRoutes);
 
-// API 문서화
-app.get('/api-docs', (req, res) => {
-    res.json({
-        endpoints: {
-            auth: {
-                login: 'POST /api/auth/login',
-                register: 'POST /api/auth/register',
-                me: 'GET /api/auth/me'
-            },
-            rooms: {
-                list: 'GET /api/rooms',
-                create: 'POST /api/rooms',
-                getOne: 'GET /api/rooms/:id',
-                join: 'POST /api/rooms/:id/join',
-                leave: 'DELETE /api/rooms/:id/leave',
-                voice: {
-                    join: 'POST /api/rooms/:id/voice/join',
-                    leave: 'DELETE /api/rooms/:id/voice/leave',
-                    participants: 'GET /api/rooms/:id/voice/participants'
-                }
-            }
-        }
-    });
-});
+// Socket.IO 연결된 사용자 관리
+const connectedUsers = new Map();
+const roomVoiceUsers = new Map();
 
 // Socket.IO 이벤트 처리
 io.on('connection', (socket) => {
     console.log('New client connected:', socket.id);
     
+    socket.on('join-voice', async (data) => {
+        try {
+            const { roomId, userId, username } = data;
+            console.log('User joining voice:', { roomId, userId, username });
+
+            const userInfo = { socketId: socket.id, userId, username };
+            
+            // 음성 채팅방 참가자 관리
+            if (!roomVoiceUsers.has(roomId)) {
+                roomVoiceUsers.set(roomId, new Map());
+            }
+            roomVoiceUsers.get(roomId).set(userId, userInfo);
+
+            // 소켓 룸 참가
+            socket.join(`voice-${roomId}`);
+
+            // 현재 참가자 목록 가져오기
+            const participants = Array.from(roomVoiceUsers.get(roomId).values());
+
+            // 새 참가자 정보를 다른 사용자들에게 전송
+            socket.to(`voice-${roomId}`).emit('user-joined-voice', userInfo);
+            
+            // 새 참가자에게 현재 참가자 목록 전송
+            socket.emit('voice-users-list', participants);
+
+        } catch (error) {
+            console.error('Error in join-voice:', error);
+        }
+    });
+
+    socket.on('leave-voice', (data) => {
+        const { roomId, userId } = data;
+        console.log('User leaving voice:', { roomId, userId });
+
+        if (roomVoiceUsers.has(roomId)) {
+            roomVoiceUsers.get(roomId).delete(userId);
+            socket.leave(`voice-${roomId}`);
+            io.to(`voice-${roomId}`).emit('user-left-voice', userId);
+        }
+    });
+
     socket.on('joinRoom', async (roomId) => {
         try {
-            // '@me' 채널 처리
             if (roomId === '@me') {
                 socket.join(roomId);
                 socket.emit('previousMessages', []);
-                socket.emit('userActivity', {
-                    type: 'join',
-                    message: 'Welcome to your personal channel!',
-                    timestamp: new Date()
-                });
                 return;
             }
 
-            // 일반 채널 처리
-            try {
-                const messages = await Message.find({ room: roomId })
-                    .sort({ createdAt: -1 })
-                    .limit(50)
-                    .populate('user', 'username');
-                
-                socket.join(roomId);
-                socket.emit('previousMessages', messages.reverse());
-                io.to(roomId).emit('userActivity', {
-                    type: 'join',
-                    message: '새로운 사용자가 입장했습니다.',
-                    timestamp: new Date()
-                });
-            } catch (error) {
-                console.error('Error fetching messages:', error);
-                socket.emit('previousMessages', []);
-            }
-        } catch (error) {
-            console.error('Error in joinRoom:', error);
-            socket.emit('error', { message: 'Failed to join room' });
-        }
-    });
-
-    socket.on('join-voice', async (data) => {
-        const { roomId, userId, username } = data;
-        try {
-            socket.join(`voice-${roomId}`);
-            socket.to(`voice-${roomId}`).emit('user-joined-voice', {
-                userId,
-                username,
-                peerId: socket.id
+            const messages = await Message.find({ room: roomId })
+                .sort({ timestamp: -1 })
+                .limit(50);
+            
+            socket.join(roomId);
+            socket.emit('previousMessages', messages.reverse());
+            io.to(roomId).emit('userActivity', {
+                type: 'join',
+                message: '새로운 사용자가 입장했습니다.',
+                timestamp: new Date()
             });
         } catch (error) {
-            console.error('Voice join error:', error);
+            console.error('Error in joinRoom:', error);
         }
-    });
-
-    socket.on('leave-voice', (roomId) => {
-        socket.leave(`voice-${roomId}`);
-        io.to(`voice-${roomId}`).emit('user-left-voice', socket.id);
     });
 
     socket.on('chatMessage', async (data) => {
         const { roomId, message, username } = data;
-
-        // '@me' 채널은 메시지를 저장하지 않음
-        if (roomId === '@me') {
-            io.to(roomId).emit('message', {
-                id: Date.now().toString(),
-                username,
-                message,
-                timestamp: new Date()
-            });
-            return;
-        }
+        if (roomId === '@me') return;
 
         try {
             const newMessage = new Message({
@@ -190,7 +167,6 @@ io.on('connection', (socket) => {
             });
         } catch (error) {
             console.error('Error in chatMessage:', error);
-            socket.emit('error', { message: 'Failed to send message' });
         }
     });
 
@@ -203,24 +179,17 @@ io.on('connection', (socket) => {
         });
     });
 
-    // 음성 채팅 이벤트
-    socket.on('joinVoice', (roomId) => {
-        socket.join(`voice-${roomId}`);
-        io.to(`voice-${roomId}`).emit('voiceUserJoined', {
-            userId: socket.id,
-            timestamp: new Date()
-        });
-    });
-
-    socket.on('leaveVoice', (roomId) => {
-        socket.leave(`voice-${roomId}`);
-        io.to(`voice-${roomId}`).emit('voiceUserLeft', {
-            userId: socket.id,
-            timestamp: new Date()
-        });
-    });
-
     socket.on('disconnect', () => {
+        // 연결이 끊긴 사용자가 참여중이던 음성 채팅방에서 제거
+        roomVoiceUsers.forEach((users, roomId) => {
+            users.forEach((user, userId) => {
+                if (user.socketId === socket.id) {
+                    users.delete(userId);
+                    io.to(`voice-${roomId}`).emit('user-left-voice', userId);
+                }
+            });
+        });
+
         console.log('Client disconnected:', socket.id);
     });
 });
