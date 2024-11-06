@@ -8,6 +8,7 @@ const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const Message = require('./models/Message');
+const voiceRoutes = require('./routes/voiceRoutes');
 
 // 환경변수 설정
 dotenv.config();
@@ -70,6 +71,7 @@ app.get('/', (req, res) => {
 // API 라우트
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/voice', voiceRoutes);
 
 // API 문서화
 app.get('/api-docs', (req, res) => {
@@ -136,6 +138,25 @@ io.on('connection', (socket) => {
             console.error('Error in joinRoom:', error);
             socket.emit('error', { message: 'Failed to join room' });
         }
+    });
+
+    socket.on('join-voice', async (data) => {
+        const { roomId, userId, username } = data;
+        try {
+            socket.join(`voice-${roomId}`);
+            socket.to(`voice-${roomId}`).emit('user-joined-voice', {
+                userId,
+                username,
+                peerId: socket.id
+            });
+        } catch (error) {
+            console.error('Voice join error:', error);
+        }
+    });
+
+    socket.on('leave-voice', (roomId) => {
+        socket.leave(`voice-${roomId}`);
+        io.to(`voice-${roomId}`).emit('user-left-voice', socket.id);
     });
 
     socket.on('chatMessage', async (data) => {
