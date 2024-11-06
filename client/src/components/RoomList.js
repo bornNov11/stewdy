@@ -6,7 +6,10 @@ import API_URL from '../config';
 function RoomList() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -40,7 +43,7 @@ function RoomList() {
           Authorization: `Bearer ${token}`
         }
       });
-  
+
       if (checkResponse.data.isParticipant) {
         // 이미 참가 중이면 바로 입장
         navigate(`/channels/${roomId}`);
@@ -55,6 +58,68 @@ function RoomList() {
     }
   };
 
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/api/rooms/${selectedRoom.id}/join`, 
+        { password },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      setShowPasswordModal(false);
+      setPassword('');
+      navigate(`/channels/${selectedRoom.id}`);
+    } catch (error) {
+      setError(error.response?.data?.error || '스터디룸 참가에 실패했습니다.');
+    }
+  };
+
+  const PasswordModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-discord-secondary p-6 rounded-lg w-96">
+        <h3 className="text-xl text-white font-bold mb-4">비밀번호 입력</h3>
+        {error && (
+          <div className="bg-red-500 text-white p-2 rounded mb-4">
+            {error}
+          </div>
+        )}
+        <form onSubmit={handlePasswordSubmit}>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-2 mb-4 bg-discord-tertiary text-white rounded focus:outline-none"
+            placeholder="비밀번호를 입력하세요"
+            required
+          />
+          <div className="flex justify-end space-x-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowPasswordModal(false);
+                setPassword('');
+                setError('');
+              }}
+              className="px-4 py-2 bg-discord-tertiary text-white rounded hover:bg-opacity-80"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-discord-primary text-white rounded hover:bg-opacity-80"
+            >
+              참가
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="flex-1 bg-discord-bg p-4">
@@ -63,18 +128,15 @@ function RoomList() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex-1 bg-discord-bg p-4">
-        <div className="text-red-500">{error}</div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex-1 bg-discord-bg p-6 overflow-y-auto">
       <div className="max-w-4xl mx-auto">
         <h2 className="text-2xl font-bold text-white mb-6">스터디룸 목록</h2>
+        {error && !showPasswordModal && (
+          <div className="bg-red-500 text-white p-3 rounded mb-4">
+            {error}
+          </div>
+        )}
         <div className="grid gap-4">
           {rooms.map((room) => (
             <div
@@ -108,6 +170,7 @@ function RoomList() {
           )}
         </div>
       </div>
+      {showPasswordModal && <PasswordModal />}
     </div>
   );
 }
